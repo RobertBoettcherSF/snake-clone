@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Snake Clone</title>
+<style>
+  :root {
+    --bg: #0c110d;
+    --panel: #141c16;
+    --ink: #d7ead0;
+    --dim: #7e9576;
+    --line: #243328;
+    --lime: #9dff6a;
+    --lime-dim: #4a8a32;
+    --head: #e7ff9a;
+    --pellet: #ffbf3c;
+    --danger: #ff5d5d;
+    --ok: #9dff6a;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); min-height: 100%; }
+  body { display: flex; flex-direction: column; align-items: center; padding: 12px 12px 32px; }
+  header { width: min(560px, 100%); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+  h1 { font-size: 1.05rem; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; color: var(--lime); }
+  .stamp { font-size: 0.75rem; color: var(--dim); }
+  .hud { width: min(560px, 100%); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--line); padding: 8px 10px; }
+  .stat .k { font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+  .stat .v { font-size: 1.35rem; color: var(--lime); line-height: 1.2; }
+  .stat .best { font-size: 0.75rem; color: var(--dim); }
+  .board-wrap { position: relative; width: min(560px, 100%); touch-action: none; }
+  canvas { display: block; width: 100%; height: auto; background: #070a08; border: 1px solid var(--line); image-rendering: pixelated; }
+  .overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(7,10,8,0.55); color: var(--ink); font-size: 1.1rem; letter-spacing: 0.12em; text-transform: uppercase; }
+  .overlay.show { display: flex; }
+  .controls { width: min(560px, 100%); display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  button, input[type=number] {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    font: inherit; font-size: 0.85rem; padding: 6px 10px; border-radius: 0;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--lime-dim); }
+  button.auto { background: #17321a; border-color: var(--lime-dim); color: var(--lime); }
+  button.auto.stop { background: #3a1212; border-color: var(--danger); color: var(--danger); }
+  label.seed { display: flex; gap: 6px; align-items: center; font-size: 0.8rem; color: var(--dim); }
+  label.seed input { width: 8.5rem; }
+  .flags button { padding: 4px 7px; min-width: 2.2rem; }
+  .flags button[aria-pressed="true"] { border-color: var(--lime); color: var(--lime); }
+  .hint { width: min(560px, 100%); color: var(--dim); font-size: 0.75rem; margin-top: 8px; }
+  .banner, .crash, .prompt {
+    width: min(560px, 100%); margin-top: 8px; padding: 8px 10px;
+    background: #2a1c0a; border: 1px solid #8a6a20; font-size: 0.85rem;
+  }
+  .crash, .prompt { display: none; }
+  .prompt { background: var(--panel); border-color: var(--line); }
+  .prompt textarea { width: 100%; margin: 6px 0; background: #070a08; color: var(--ink); border: 1px solid var(--line); font: inherit; min-height: 3.2rem; }
+  a { color: var(--lime); }
+  @media (max-width: 320px) {
+    .hud { grid-template-columns: 1fr; }
+    .stat .v { font-size: 1.1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1 data-i18n="title">Snake Clone</h1>
+    <div class="stamp">
+      <span id="stamp">{{STAMP}}</span>
+      <span id="badge"></span>
+    </div>
+  </header>
+  <div id="stale" class="banner" hidden></div>
+  <div id="crash" class="crash"></div>
+  <div class="hud">
+    <div class="stat">
+      <div class="k" data-i18n="score">Score</div>
+      <div class="v" id="score">0</div>
+      <div class="best"><span data-i18n="best">Best</span>: <span id="best-score">0</span></div>
+    </div>
+    <div class="stat">
+      <div class="k" data-i18n="length">Length</div>
+      <div class="v" id="length">3</div>
+      <div class="best"><span data-i18n="best">Best</span>: <span id="best-length">3</span></div>
+    </div>
+    <div class="stat">
+      <div class="k" data-i18n="turns">Turns</div>
+      <div class="v" id="turns">0</div>
+      <div class="best"><span data-i18n="bestTurns">Best (fewest for top score)</span>: <span id="best-turns">—</span></div>
+    </div>
+  </div>
+  <div class="board-wrap" id="board-wrap">
+    <canvas id="board" width="400" height="400" aria-label="Snake board"></canvas>
+    <div id="overlay" class="overlay"></div>
+  </div>
+  <div class="controls">
+    <button id="auto-btn" class="auto" type="button" data-i18n="auto">Auto</button>
+    <label class="seed"><span data-i18n="pelletSeed">Pellet seed</span>
+      <input id="pellet-seed" type="number" min="0" max="2147483647" value="1" step="1">
+    </label>
+    <label class="seed"><span data-i18n="behaviourSeed">Behaviour seed</span>
+      <input id="behaviour-seed" type="number" min="0" max="2147483647" value="1" step="1">
+    </label>
+    <button id="sound-btn" type="button" data-i18n="soundOff">Sound off</button>
+    <button id="debug-btn" type="button" data-i18n="debug">Debug</button>
+    <span class="flags" role="group" aria-label="Language">
+      <button type="button" data-lang="en-GB" aria-pressed="true">GB</button>
+      <button type="button" data-lang="de" aria-pressed="false">DE</button>
+      <button type="button" data-lang="es" aria-pressed="false">ES</button>
+      <button type="button" data-lang="fr" aria-pressed="false">FR</button>
+    </span>
+  </div>
+  <p class="hint" data-i18n="hint">Arrows or WASD, swipe on a phone. Space pauses, R restarts, F9 downloads a report.</p>
+  <div id="prompt" class="prompt">
+    <div data-i18n="expectedAsk">What did you expect?</div>
+    <textarea id="expected" maxlength="500"></textarea>
+    <button id="download-report" type="button" data-i18n="download">Download report</button>
+    <button id="cancel-prompt" type="button" data-i18n="cancel">Cancel</button>
+  </div>
+<script>
+const STAMP = "{{STAMP}}";
+const SOURCE_SHA = "{{SOURCE_SHA}}";
+const WASM_B64 = "{{WASM_BASE64}}";
+const REPO = "RobertBoettcherSF/snake-clone";
+const I18N = {
+  "en-GB": {
+    title: "Snake Clone", score: "Score", length: "Length", turns: "Turns",
+    best: "Best", bestTurns: "Best (fewest for top score)", auto: "Auto", stop: "Stop",
+    pelletSeed: "Pellet seed", behaviourSeed: "Behaviour seed",
+    soundOff: "Sound off", soundOn: "Sound on", debug: "Debug",
+    hint: "Arrows or WASD, swipe on a phone. Space pauses, R restarts, F9 downloads a report.",
+    paused: "Paused", dead: "Game over", won: "You win",
+    expectedAsk: "What did you expect?", download: "Download report", cancel: "Cancel",
+    stale: "A newer build is on the server. Reload to match.",
+    crash: "The last visit did not close cleanly. Download the crash report?",
+    crashDl: "Download crash report"
+  },
+  de: {
+    title: "Snake-Klon", score: "Punkte", length: "Länge", turns: "Züge",
+    best: "Beste", bestTurns: "Beste (wenigste Züge für Höchstpunkte)", auto: "Auto", stop: "Stopp",
+    pelletSeed: "Futter-Saat", behaviourSeed: "Verhalten-Saat",
+    soundOff: "Ton aus", soundOn: "Ton an", debug: "Debug",
+    hint: "Pfeile oder WASD, auf dem Telefon wischen. Leertaste pausiert, R startet neu, F9 lädt einen Bericht.",
+    paused: "Pause", dead: "Spiel vorbei", won: "Gewonnen",
+    expectedAsk: "Was haben Sie erwartet?", download: "Bericht laden", cancel: "Abbrechen",
+    stale: "Auf dem Server liegt ein neuerer Stand. Neu laden, um ihn zu sehen.",
+    crash: "Der letzte Besuch endete nicht sauber. Absturzbericht laden?",
+    crashDl: "Absturzbericht laden"
+  },
+  es: {
+    title: "Clon de Snake", score: "Puntos", length: "Longitud", turns: "Turnos",
+    best: "Mejor", bestTurns: "Mejor (menos turnos para la máxima puntuación)", auto: "Auto", stop: "Parar",
+    pelletSeed: "Semilla del cebo", behaviourSeed: "Semilla del comportamiento",
+    soundOff: "Sonido off", soundOn: "Sonido on", debug: "Depurar",
+    hint: "Flechas o WASD; desliza en el teléfono. Espacio pausa, R reinicia, F9 descarga un informe.",
+    paused: "Pausa", dead: "Fin de la partida", won: "Has ganado",
+    expectedAsk: "¿Qué esperabas?", download: "Descargar informe", cancel: "Cancelar",
+    stale: "Hay una versión más nueva en el servidor. Recarga para verla.",
+    crash: "La visita anterior no se cerró bien. ¿Descargar el informe de fallo?",
+    crashDl: "Descargar informe de fallo"
+  },
+  fr: {
+    title: "Clone de Snake", score: "Score", length: "Longueur", turns: "Tours",
+    best: "Meilleur", bestTurns: "Meilleur (le moins de tours pour le meilleur score)", auto: "Auto", stop: "Stop",
+    pelletSeed: "Graine des proies", behaviourSeed: "Graine du comportement",
+    soundOff: "Son coupé", soundOn: "Son allumé", debug: "Debug",
+    hint: "Flèches ou WASD, glissez sur le téléphone. Espace met en pause, R relance, F9 télécharge un rapport.",
+    paused: "Pause", dead: "Partie terminée", won: "Gagné",
+    expectedAsk: "À quoi vous attendiez-vous ?", download: "Télécharger le rapport", cancel: "Annuler",
+    stale: "Une version plus récente est sur le serveur. Rechargez pour la voir.",
+    crash: "La dernière visite ne s'est pas terminée proprement. Télécharger le rapport d'incident ?",
+    crashDl: "Télécharger le rapport d'incident"
+  }
+};
+
+const $ = (id) => document.getElementById(id);
+const canvas = $("board");
+const ctx = canvas.getContext("2d");
+let M = null;
+let lang = "en-GB";
+let soundOn = true;
+let audioCtx = null;
+let running = false;
+let timer = 0;
+let events = [];
+let autoWasOn = false;
+let dirtyKey = "snake-clone-dirty";
+let bestKey = "snake-clone-bests";
+let touchStart = null;
+
+function t(key) { return (I18N[lang] || I18N["en-GB"])[key] || I18N["en-GB"][key] || key; }
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const k = el.getAttribute("data-i18n");
+    if (k === "auto") el.textContent = (M && M.sn_auto() && M.sn_alive()) ? t("stop") : t("auto");
+    else el.textContent = t(k);
+  });
+  document.querySelectorAll(".flags button").forEach((b) => {
+    b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang ? "true" : "false");
+  });
+  $("sound-btn").textContent = soundOn ? t("soundOff") : t("soundOn");
+  updateOverlay();
+}
+function loadBests() {
+  try {
+    const j = JSON.parse(localStorage.getItem(bestKey) || "null");
+    if (j && typeof j.bestScore === "number") return j;
+  } catch (e) {}
+  return { bestScore: 0, bestTurns: 0, bestLength: 3 };
+}
+function saveBestsFromCore() {
+  const b = {
+    bestScore: M.sn_best_score(),
+    bestTurns: M.sn_best_turns(),
+    bestLength: M.sn_best_length()
+  };
+  localStorage.setItem(bestKey, JSON.stringify(b));
+  return b;
+}
+function seedInputs() {
+  const p = Math.max(0, Math.min(2147483647, Number($("pellet-seed").value) || 0));
+  const b = Math.max(0, Math.min(2147483647, Number($("behaviour-seed").value) || 0));
+  $("pellet-seed").value = String(p);
+  $("behaviour-seed").value = String(b);
+  return { p, b };
+}
+function C(name) { return M[name]; }
+function beep(kind) {
+  if (!soundOn) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = kind === "die" ? "square" : "sine";
+    o.frequency.value = kind === "eat" ? 740 : kind === "die" ? 110 : 220;
+    g.gain.value = 0.04;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (kind === "die" ? 0.28 : 0.09));
+    o.stop(audioCtx.currentTime + 0.3);
+  } catch (e) {}
+}
+function unlockAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+}
+function markDirty(payload) {
+  try { localStorage.setItem(dirtyKey, JSON.stringify(payload)); } catch (e) {}
+}
+function markClean() { try { localStorage.removeItem(dirtyKey); } catch (e) {} }
+
+function collectLog() {
+  const n = M.sn_log_count();
+  const log = [];
+  for (let i = 1; i <= n; i++) log.push(M.sn_log_entry(i));
+  return log;
+}
+function errorText() {
+  const n = M.sn_error_length();
+  if (!n) return null;
+  let s = "";
+  for (let i = 1; i <= n; i++) s += String.fromCharCode(M.sn_error_char(i));
+  return { file: s, line: M.sn_error_line() };
+}
+function buildReport(reason, expected) {
+  const err = errorText();
+  return {
+    schema: "poncelet-report",
+    schema_version: 1,
+    kind: "poncelet-report",
+    stamp: STAMP,
+    seeds: { pellet: M.sn_pellet_seed(), behaviour: M.sn_behaviour_seed() },
+    test_key: "snake-p" + M.sn_pellet_seed() + "-b" + M.sn_behaviour_seed(),
+    expected: expected == null || expected === "" ? null : expected,
+    action_log: collectLog(),
+    state_hash: "0x" + (M.sn_hash() >>> 0).toString(16),
+    events: events.slice(),
+    errors: err ? [err] : [],
+    environment: {
+      userAgent: navigator.userAgent,
+      language: lang,
+      viewport: { w: window.innerWidth, h: window.innerHeight },
+      hidden: document.hidden
+    },
+    custom: {
+      score: M.sn_score(),
+      length: M.sn_length(),
+      turns: M.sn_turns(),
+      best_score: M.sn_best_score(),
+      best_turns: M.sn_best_turns(),
+      best_length: M.sn_best_length(),
+      fitness: M.sn_fitness(),
+      auto: M.sn_auto() !== 0,
+      alive: M.sn_alive() !== 0,
+      won: M.sn_won() !== 0,
+      reason: reason,
+      interval_ms: M.sn_interval_ms()
+    }
+  };
+}
+function reportName(report) {
+  const safe = String(report.stamp).replace(/\s+/g, "-");
+  return "snake-report-" + safe + "-p" + report.seeds.pellet + "-b" + report.seeds.behaviour + ".json";
+}
+function downloadJson(obj, name) {
+  const blob = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function autoStopReport(reason) {
+  const report = buildReport(reason, null);
+  downloadJson(report, reportName(report));
+  events.push({ ev: "report", reason: reason });
+}
+
+function draw() {
+  const n = M.sn_grid();
+  const size = canvas.width;
+  const cell = size / n;
+  ctx.fillStyle = "#070a08";
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = "#182218";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= n; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, size); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(size, i * cell); ctx.stroke();
+  }
+  for (let y = 1; y <= n; y++) {
+    for (let x = 1; x <= n; x++) {
+      const k = M.sn_cell(x, y);
+      if (!k) continue;
+      const px = (x - 1) * cell, py = (y - 1) * cell;
+      if (k === 3) {
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--pellet").trim() || "#ffbf3c";
+        const m = cell * 0.28;
+        ctx.beginPath();
+        ctx.arc(px + cell / 2, py + cell / 2, cell / 2 - m, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = k === 2 ? "#e7ff9a" : "#9dff6a";
+        const inset = k === 2 ? 1 : 2;
+        ctx.fillRect(px + inset, py + inset, cell - inset * 2, cell - inset * 2);
+      }
+    }
+  }
+  $("score").textContent = String(M.sn_score());
+  $("length").textContent = String(M.sn_length());
+  $("turns").textContent = String(M.sn_turns());
+  $("best-score").textContent = String(M.sn_best_score());
+  $("best-length").textContent = String(M.sn_best_length());
+  $("best-turns").textContent = M.sn_best_score() > 0 ? String(M.sn_best_turns()) : "—";
+  const autoOn = M.sn_auto() && M.sn_alive();
+  $("auto-btn").textContent = autoOn ? t("stop") : t("auto");
+  $("auto-btn").classList.toggle("stop", !!autoOn);
+  $("auto-btn").setAttribute("data-i18n", autoOn ? "stop" : "auto");
+  updateOverlay();
+}
+function updateOverlay() {
+  const o = $("overlay");
+  if (!M) { o.classList.remove("show"); return; }
+  if (M.sn_won()) { o.textContent = t("won"); o.classList.add("show"); }
+  else if (!M.sn_alive()) { o.textContent = t("dead"); o.classList.add("show"); }
+  else if (M.sn_paused()) { o.textContent = t("paused"); o.classList.add("show"); }
+  else { o.classList.remove("show"); }
+}
+function schedule() {
+  if (timer) clearTimeout(timer);
+  if (!running || !M || M.sn_paused() || !M.sn_alive()) return;
+  timer = setTimeout(tick, M.sn_interval_ms());
+}
+function tick() {
+  if (!M || M.sn_paused() || !M.sn_alive()) return;
+  const wasAuto = M.sn_auto() !== 0;
+  const ev = M.sn_tick();
+  if (ev === 2) { events.push({ ev: "eat", score: M.sn_score(), turns: M.sn_turns() }); beep("eat"); }
+  if (ev === 3) { events.push({ ev: "die", score: M.sn_score(), turns: M.sn_turns() }); beep("die"); }
+  if (ev === 4) { events.push({ ev: "win", score: M.sn_score(), turns: M.sn_turns() }); beep("eat"); }
+  saveBestsFromCore();
+  draw();
+  markDirty(buildReport("session", null));
+  if (wasAuto && (ev === 3 || ev === 4)) {
+    autoWasOn = false;
+    autoStopReport(ev === 4 ? "win" : "die");
+    running = false;
+    return;
+  }
+  schedule();
+}
+function startLoop() {
+  running = true;
+  schedule();
+}
+function stopLoop() {
+  running = false;
+  if (timer) clearTimeout(timer);
+}
+function initGame(auto) {
+  const { p, b } = seedInputs();
+  const bests = loadBests();
+  events = [{ ev: "init", pellet: p, behaviour: b, auto: !!auto }];
+  M.sn_init(p, b, bests.bestScore, bests.bestTurns, bests.bestLength);
+  M.sn_set_auto(auto ? 1 : 0);
+  autoWasOn = !!auto;
+  M.sn_set_paused(0);
+  saveBestsFromCore();
+  draw();
+  if (auto) startLoop();
+}
+function setPaused(on) {
+  if (!M || !M.sn_alive()) return;
+  M.sn_set_paused(on ? 1 : 0);
+  draw();
+  if (on) stopLoop();
+  else startLoop();
+}
+function onAutoClick() {
+  if (!M) return;
+  if (M.sn_auto() && M.sn_alive()) {
+    M.sn_set_auto(0);
+    autoWasOn = false;
+    autoStopReport("stop");
+    draw();
+    if (!M.sn_paused() && M.sn_alive()) startLoop();
+    return;
+  }
+  initGame(true);
+}
+
+function dirFromKey(ev) {
+  const key = ev.key;
+  const code = ev.code;
+  if (key === "ArrowUp" || key === "w" || key === "W" || code === "KeyW" || code === "ArrowUp") return 1;
+  if (key === "ArrowRight" || key === "d" || key === "D" || code === "KeyD" || code === "ArrowRight") return 2;
+  if (key === "ArrowDown" || key === "s" || key === "S" || code === "KeyS" || code === "ArrowDown") return 3;
+  if (key === "ArrowLeft" || key === "a" || key === "A" || code === "KeyA" || code === "ArrowLeft") return 4;
+  return 0;
+}
+function openF9() {
+  if (!M) return;
+  setPaused(true);
+  $("expected").value = "";
+  $("prompt").style.display = "block";
+  $("expected").focus();
+}
+function closeF9() { $("prompt").style.display = "none"; }
+
+function b64ToBytes(s) {
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function main() {
+  const bytes = b64ToBytes(WASM_B64);
+  const imports = { env: {} };
+  const { instance } = await WebAssembly.instantiate(bytes, imports);
+  M = instance.exports;
+  if (typeof M.memory === "undefined" && instance.exports.memory) {
+    M = Object.assign({ memory: instance.exports.memory }, instance.exports);
+  }
+  const crash = localStorage.getItem(dirtyKey);
+  if (crash) {
+    const box = $("crash");
+    box.style.display = "block";
+    box.innerHTML = "";
+    const p = document.createElement("span");
+    p.textContent = t("crash") + " ";
+    const btn = document.createElement("button");
+    btn.textContent = t("crashDl");
+    btn.addEventListener("click", () => {
+      try { downloadJson(JSON.parse(crash), "snake-last-events.json"); } catch (e) {}
+      markClean();
+      box.style.display = "none";
+    });
+    box.appendChild(p); box.appendChild(btn);
+  }
+  initGame(true);
+  applyLang();
+  checkStamp();
+  commitBadge();
+}
+
+function checkStamp() {
+  const url = "https://raw.githubusercontent.com/" + REPO + "/main/docs/version.txt";
+  fetch(url, { cache: "no-store" }).then((r) => r.ok ? r.text() : "").then((txt) => {
+    const remote = (txt || "").trim();
+    if (remote && remote !== STAMP) {
+      $("stale").hidden = false;
+      $("stale").textContent = t("stale");
+    }
+  }).catch(() => {});
+}
+function commitBadge() {
+  const el = $("badge");
+  el.textContent = " · built from " + (SOURCE_SHA || "?");
+  fetch("https://api.github.com/repos/" + REPO + "/commits?path=docs/index.html&per_page=1")
+    .then((r) => r.ok ? r.json() : [])
+    .then((arr) => {
+      if (!arr || !arr[0]) return;
+      const served = arr[0].sha.slice(0, 7);
+      const parent = (arr[0].parents && arr[0].parents[0] && arr[0].parents[0].sha.slice(0, 7)) || "";
+      const ok = parent && SOURCE_SHA && parent.indexOf(SOURCE_SHA.replace(/\+$/, "").slice(0, 7)) === 0;
+      el.textContent = " · built from " + SOURCE_SHA + " · served " + served + (ok ? " ✓" : "");
+    }).catch(() => {});
+}
+
+document.querySelectorAll(".flags button").forEach((b) => {
+  b.addEventListener("click", () => { lang = b.getAttribute("data-lang"); applyLang(); });
+});
+$("auto-btn").addEventListener("click", () => { unlockAudio(); onAutoClick(); });
+$("sound-btn").addEventListener("click", () => {
+  soundOn = !soundOn;
+  $("sound-btn").textContent = soundOn ? t("soundOff") : t("soundOn");
+  if (soundOn) unlockAudio();
+});
+$("debug-btn").addEventListener("click", () => { unlockAudio(); openF9(); });
+$("download-report").addEventListener("click", () => {
+  const report = buildReport("f9", $("expected").value.trim());
+  downloadJson(report, reportName(report));
+  closeF9();
+});
+$("cancel-prompt").addEventListener("click", closeF9);
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) {
+    if (ev.key === "Escape") closeF9();
+    return;
+  }
+  if (ev.key === " " || ev.code === "Space") {
+    ev.preventDefault();
+    setPaused(!(M && M.sn_paused()));
+    return;
+  }
+  if (ev.key === "r" || ev.key === "R" || ev.code === "KeyR") {
+    ev.preventDefault();
+    const keepAuto = M && M.sn_auto();
+    initGame(!!keepAuto);
+    if (!keepAuto) startLoop();
+    return;
+  }
+  if (ev.key === "F9" || ev.code === "F9") {
+    ev.preventDefault();
+    openF9();
+    return;
+  }
+  const d = dirFromKey(ev);
+  if (d && M && M.sn_alive()) {
+    ev.preventDefault();
+    M.sn_act(d);
+  }
+});
+
+const wrap = $("board-wrap");
+wrap.addEventListener("pointerdown", (ev) => {
+  unlockAudio();
+  touchStart = { x: ev.clientX, y: ev.clientY };
+});
+wrap.addEventListener("pointerup", (ev) => {
+  if (!touchStart || !M) return;
+  const dx = ev.clientX - touchStart.x, dy = ev.clientY - touchStart.y;
+  touchStart = null;
+  if (Math.abs(dx) < 16 && Math.abs(dy) < 16) return;
+  if (Math.abs(dx) > Math.abs(dy)) M.sn_act(dx > 0 ? 2 : 4);
+  else M.sn_act(dy > 0 ? 3 : 1);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (audioCtx && audioCtx.state === "running") audioCtx.suspend();
+  } else if (soundOn && audioCtx && audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+});
+window.addEventListener("pagehide", () => { markClean(); });
+document.addEventListener("click", unlockAudio, { once: true });
+
+main().catch((err) => {
+  $("overlay").classList.add("show");
+  $("overlay").textContent = String(err && err.message ? err.message : err);
+});
+</script>
+</body>
+</html>
