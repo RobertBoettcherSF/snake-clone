@@ -20,18 +20,56 @@ procedure Smoke is
    W, A, B : World;
    Valid   : Boolean;
    P       : Position;
+   Seen    : array (0 .. Cycle_Cells - 1) of Boolean := [others => False];
+   Idx, Steps : Integer;
+   D       : Direction;
 begin
+   Check (Grid_Width'Image = " 23", "grid width 23");
+   Check (Grid_Height'Image = " 11", "grid height 11");
+   Check (Grid_Width'Image /= Grid_Height'Image, "grid is not square");
+   Check (Grid_Cells'Image = " 253", "grid has 253 cells");
+   Check (Cycle_Cells'Image = " 252", "near-cycle covers 252");
+
    Init (W, 1, 2, 0, 0, 0);
    Check (W.Length = Start_Length, "init length");
    Check (W.Score = 0, "init score");
    Check (W.Turns = 0, "init turns");
    Check (W.Alive, "init alive");
-   Check (Head (W).X = 10 and then Head (W).Y = 10, "init head");
+   Check (Head (W).X = Start_Head.X and then Head (W).Y = Start_Head.Y,
+          "init head");
+   Check (W.Dir = Start_Dir, "init heading");
 
-   --  Wall death: drive into the right wall from mid-row.
+   --  The 252-cycle is a single loop of adjacent cells, omitting (23,1).
+   Check (not Snake.Auto.On_Cycle (Omitted_Cell), "omitted cell off cycle");
+   P := Start_Head;
+   Check (Snake.Auto.On_Cycle (P), "start head on cycle");
+   for I in 0 .. Cycle_Cells - 1 loop
+      Idx := Snake.Auto.Cycle_Index (P);
+      if Idx < 0 or else Idx >= Cycle_Cells or else Seen (Idx)
+      then
+         Check (False, "cycle index unique and in range");
+      end if;
+      Seen (Idx) := True;
+      D := Snake.Auto.Cycle_Next (P);
+      P := Ahead (P, D, Valid);
+      if not Valid then
+         Check (False, "cycle step stays on the board");
+      end if;
+   end loop;
+   Check (P.X = Start_Head.X and then P.Y = Start_Head.Y,
+          "cycle returns to the start head");
+   Steps := 0;
+   for I in Seen'Range loop
+      if Seen (I) then
+         Steps := Steps + 1;
+      end if;
+   end loop;
+   Check (Steps = Cycle_Cells, "cycle visits 252 cells");
+
+   --  Wall death: drive into the bottom wall from the start heading.
    Init (W, 1, 2, 0, 0, 0);
-   Set_Pending (W, Right);
-   for I in 1 .. Grid_Size loop
+   Set_Pending (W, Down);
+   for I in 1 .. Grid_Height loop
       exit when not W.Alive;
       Step (W);
    end loop;
@@ -72,23 +110,23 @@ begin
    Check (W.Best_Score = 50, "lower score keeps the best score");
    Check (W.Best_Turns = 10, "lower score keeps the best turns");
 
-   --  Self-collision: go right, down, left, then up into the body.
+   --  Self-collision: fold back into the body.
    Init (W, 1, 2, 0, 0, 0);
    W.Length := 5;
-   W.Segments (1) := (10, 10);
-   W.Segments (2) := (9, 10);
-   W.Segments (3) := (8, 10);
-   W.Segments (4) := (7, 10);
-   W.Segments (5) := (6, 10);
-   W.Dir := Right;
-   W.Pending := Right;
-   Set_Pending (W, Down);
+   W.Segments (1) := (12, 6);
+   W.Segments (2) := (12, 5);
+   W.Segments (3) := (12, 4);
+   W.Segments (4) := (12, 3);
+   W.Segments (5) := (12, 2);
+   W.Dir := Down;
+   W.Pending := Down;
+   Set_Pending (W, Right);
    Step (W);
    Check (W.Alive, "first fold still alive");
-   Set_Pending (W, Left);
+   Set_Pending (W, Up);
    Step (W);
    Check (W.Alive, "second fold still alive");
-   Set_Pending (W, Up);
+   Set_Pending (W, Left);
    Step (W);
    Check (not W.Alive, "self collision");
    Check (W.Last_Event = Died, "self event");
@@ -160,8 +198,8 @@ begin
    Check (Occupies (W, P, Ignore_Tail => False), "tail is occupied");
    Check (not Occupies (W, P, Ignore_Tail => True), "vacating tail is free");
 
-   --  v0.2: seeds 1/1 must beat the v0.1 death score of 570, and must
-   --  finish (win or die) rather than livelock in a late stall.
+   --  Seeds 1/1 must finish (win or die) and must fill more than a
+   --  trivial opening. A full 23x11 clear is 250 pellets / score 2500.
    Init (W, 1, 1, 0, 0, 0);
    Set_Auto (W, True);
    declare
@@ -174,8 +212,11 @@ begin
          Step (W);
          Guard := Guard + 1;
       end loop;
-      Check (W.Score > 570, "seeds 1/1 score beats 570");
       Check (Guard < Max_Guard, "seeds 1/1 terminates");
+      Check (W.Won, "seeds 1/1 wins");
+      Check (W.Score = Points_Per_Food * (Grid_Cells - Start_Length),
+             "seeds 1/1 fills the 23x11 board");
+      Check (not W.Log_Truncated, "seeds 1/1 log fits under the cap");
    end;
 
    if Failed = 0 then

@@ -93,7 +93,7 @@
     </div>
   </div>
   <div class="board-wrap" id="board-wrap">
-    <canvas id="board" width="400" height="400" aria-label="Snake board"></canvas>
+    <canvas id="board" width="552" height="264" aria-label="Snake board"></canvas>
     <div id="overlay" class="overlay"></div>
   </div>
   <div class="controls">
@@ -188,7 +188,7 @@ let timer = 0;
 let events = [];
 let autoWasOn = false;
 let dirtyKey = "snake-clone-dirty";
-let bestKey = "snake-clone-bests";
+let bestKey = "snake-clone-bests-23x11";
 let touchStart = null;
 
 function t(key) { return (I18N[lang] || I18N["en-GB"])[key] || I18N["en-GB"][key] || key; }
@@ -228,7 +228,6 @@ function seedInputs() {
   $("behaviour-seed").value = String(b);
   return { p, b };
 }
-function C(name) { return M[name]; }
 function beep(kind) {
   if (!soundOn) return;
   try {
@@ -301,9 +300,13 @@ function buildReport(reason, expected) {
       alive: M.sn_alive() !== 0,
       won: M.sn_won() !== 0,
       reason: reason,
+      grid_width: M.sn_grid_width(),
+      grid_height: M.sn_grid_height(),
       death_reason: (["none", "wall", "self", "trapped"][M.sn_death_reason()] || "none"),
       enclosed_area: M.sn_enclosed_area(),
-      interval_ms: M.sn_interval_ms()
+      interval_ms: M.sn_interval_ms(),
+      log_cap: M.sn_log_cap(),
+      log_truncated: M.sn_log_truncated() !== 0
     }
   };
 }
@@ -326,19 +329,23 @@ function autoStopReport(reason) {
 }
 
 function draw() {
-  const n = M.sn_grid();
-  const size = canvas.width;
-  const cell = size / n;
+  const gw = M.sn_grid_width();
+  const gh = M.sn_grid_height();
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const cell = cw / gw;
   ctx.fillStyle = "#070a08";
-  ctx.fillRect(0, 0, size, size);
+  ctx.fillRect(0, 0, cw, ch);
   ctx.strokeStyle = "#182218";
   ctx.lineWidth = 1;
-  for (let i = 0; i <= n; i++) {
-    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, size); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(size, i * cell); ctx.stroke();
+  for (let i = 0; i <= gw; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, ch); ctx.stroke();
   }
-  for (let y = 1; y <= n; y++) {
-    for (let x = 1; x <= n; x++) {
+  for (let j = 0; j <= gh; j++) {
+    ctx.beginPath(); ctx.moveTo(0, j * cell); ctx.lineTo(cw, j * cell); ctx.stroke();
+  }
+  for (let y = 1; y <= gh; y++) {
+    for (let x = 1; x <= gw; x++) {
       const k = M.sn_cell(x, y);
       if (!k) continue;
       const px = (x - 1) * cell, py = (y - 1) * cell;

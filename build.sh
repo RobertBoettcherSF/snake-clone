@@ -28,7 +28,7 @@ if git status --porcelain >/dev/null 2>&1 && [ -n "$(git status --porcelain)" ];
   SOURCE_SHA="${SOURCE_SHA}+"
 fi
 # Build clock is Europe/Berlin (D-005).
-STAMP="v0.2 b$(TZ=Europe/Berlin date +%Y%m%d-%H%M) $SOURCE_SHA"
+STAMP="v0.3 b$(TZ=Europe/Berlin date +%Y%m%d-%H%M) $SOURCE_SHA"
 
 rm -rf obj/wasm
 mkdir -p obj/wasm docs
@@ -64,8 +64,9 @@ PY
 EXPORTS="sn_init sn_restart sn_set_seeds sn_act sn_set_auto sn_set_paused
 sn_tick sn_score sn_length sn_turns sn_best_score sn_best_turns
 sn_best_length sn_fitness sn_alive sn_won sn_auto sn_paused
-sn_pellet_seed sn_behaviour_seed sn_food_x sn_food_y sn_dir
-sn_interval_ms sn_grid sn_cell sn_hash sn_log_count sn_log_entry
+sn_pellet_seed sn_behaviour_seed
+sn_interval_ms sn_grid_width sn_grid_height sn_cell sn_hash
+sn_log_count sn_log_entry sn_log_cap sn_log_truncated
 sn_last_event sn_error_line sn_error_length sn_error_char
 sn_death_reason sn_enclosed_area
 __gnat_last_chance_handler"

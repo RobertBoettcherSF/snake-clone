@@ -241,34 +241,24 @@ package body Snake.Api is
       return I32 (The_World.Behaviour_Seed);
    end Behaviour_Seed;
 
-   function Food_X return I32 is
-   begin
-      return I32 (The_World.Food.X);
-   end Food_X;
-
-   function Food_Y return I32 is
-   begin
-      return I32 (The_World.Food.Y);
-   end Food_Y;
-
-   function Dir_Code return I32 is
-   begin
-      return I32 (Code_Of (The_World.Dir));
-   end Dir_Code;
-
    function Interval_Ms return I32 is
    begin
       return I32 (Interval_Ms (The_World));
    end Interval_Ms;
 
-   function Grid return I32 is
+   function Grid_Width_Value return I32 is
    begin
-      return I32 (Grid_Size);
-   end Grid;
+      return I32 (Grid_Width);
+   end Grid_Width_Value;
+
+   function Grid_Height_Value return I32 is
+   begin
+      return I32 (Grid_Height);
+   end Grid_Height_Value;
 
    function Cell (X, Y : I32) return I32 is
    begin
-      if Integer (X) in Cell_Coord'Range and then Integer (Y) in Cell_Coord'Range
+      if Integer (X) in Cell_X'Range and then Integer (Y) in Cell_Y'Range
       then
          return I32 (Cell_Kind'Pos (Cell (The_World, Integer (X), Integer (Y))));
       end if;
@@ -292,6 +282,21 @@ package body Snake.Api is
       end if;
       return 0;
    end Log_Entry;
+
+   function Log_Cap return I32 is
+   begin
+      return I32 (Max_Log);
+   end Log_Cap;
+
+   function Log_Truncated return I32 is
+   begin
+      if The_World.Log_Truncated then
+         return 1;
+      else
+         return 0;
+      end if;
+   end Log_Truncated;
+
 
    function Last_Event return I32 is
    begin

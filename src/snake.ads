@@ -1,20 +1,33 @@
--- Game core. No heap, no tasking, no Text_IO, no hidden world state.
--- Pass World and both RNG states in; SPARK can be added after a freeze.
+--  Game core. No heap, no tasking, no Text_IO, no hidden world state.
+--  Pass World and both RNG states in; SPARK can be added after a freeze.
+--
+--  The board is 23 wide by 11 high (253 cells). That was the intended
+--  size from the start; v0.1/v0.2 shipped a 20x20 square by mistake.
+--  See docs/HOW_WE_GOT_HERE.md and docs/ALGORITHM.md.
 
 package Snake is
-   Grid_Size       : constant := 20;
+   Grid_Width      : constant := 23;
+   Grid_Height     : constant := 11;
+   Grid_Cells      : constant := Grid_Width * Grid_Height;  -- 253
+   Cycle_Cells     : constant := Grid_Cells - 1;            -- 252
    Start_Length    : constant := 3;
    Points_Per_Food : constant := 10;
    Base_Interval   : constant := 150;
    Interval_Step   : constant := 15;
    Min_Interval    : constant := 50;
    Food_Per_Speed  : constant := 5;
-   Max_Log         : constant := 4096;
+   --  Fixed cap on the action log (no heap). 65536 holds a full 23x11
+   --  fill even in the worst case (about 250 pellets x 252 cycle steps).
+   --  If a run still overflows, later moves are dropped and
+   --  Log_Truncated is set; the report records both the cap and the flag.
+   Max_Log         : constant := 65_536;
    Fitness_Scale   : constant := 100_000;
+   Compact_Length  : constant := Grid_Cells / 3;  -- 84, about 1/3 of the board
 
-   subtype Cell_Coord is Integer range 1 .. Grid_Size;
-   subtype Length_Count is Integer range 0 .. Grid_Size * Grid_Size;
-   subtype Score_Value is Integer range 0 .. Points_Per_Food * Grid_Size * Grid_Size;
+   subtype Cell_X is Integer range 1 .. Grid_Width;
+   subtype Cell_Y is Integer range 1 .. Grid_Height;
+   subtype Length_Count is Integer range 0 .. Grid_Cells;
+   subtype Score_Value is Integer range 0 .. Points_Per_Food * Grid_Cells;
    subtype Turn_Count is Integer range 0 .. 1_000_000;
    subtype Seed_Value is Integer range 0 .. 2_147_483_647;
    subtype Log_Index is Integer range 0 .. Max_Log;
@@ -26,11 +39,11 @@ package Snake is
    type Cell_Kind is (Empty, Body_Cell, Head_Cell, Pellet);
 
    type Position is record
-      X : Cell_Coord := 1;
-      Y : Cell_Coord := 1;
+      X : Cell_X := 1;
+      Y : Cell_Y := 1;
    end record;
 
-   type Body_Array is array (1 .. Grid_Size * Grid_Size) of Position;
+   type Body_Array is array (1 .. Grid_Cells) of Position;
    type Log_Array is array (Log_Slot) of Integer;
 
    type Rng_State is record
@@ -39,15 +52,25 @@ package Snake is
 
    type Event_Kind is (None, Moved, Ate, Died, Won);
    type Death_Cause is (None, Wall, Self, Trapped);
-   Compact_Length : constant := Grid_Size * Grid_Size / 3;  -- 133, about 1/3 of the board
-   Cycle_Length   : constant := 252;
+
+   --  Opening snake: three consecutive cells of the 252-cycle, heading
+   --  Down column 12 (an even column that the cycle traverses downward
+   --  through rows 2..11). See docs/ALGORITHM.md.
+   Start_Head : constant Position := (12, 6);
+   Start_Neck : constant Position := (12, 5);
+   Start_Tail : constant Position := (12, 4);
+   Start_Dir  : constant Direction := Down;
+
+   --  The one cell left off the near-cycle (x+y even, so the remaining
+   --  252 cells are balanced and can form a cycle).
+   Omitted_Cell : constant Position := (23, 1);
 
    type World is record
       Segments        : Body_Array := [others => (1, 1)];
       Length          : Length_Count := Start_Length;
       Food            : Position := (1, 1);
-      Dir             : Direction := Right;
-      Pending         : Direction := Right;
+      Dir             : Direction := Start_Dir;
+      Pending         : Direction := Start_Dir;
       Score           : Score_Value := 0;
       Turns           : Turn_Count := 0;
       Pellets         : Length_Count := 0;
@@ -64,6 +87,7 @@ package Snake is
       Auto_On         : Boolean := False;
       Log             : Log_Array := [others => 0];
       Log_Count       : Log_Index := 0;
+      Log_Truncated   : Boolean := False;
       Hash            : Integer := 0;
       Last_Event      : Event_Kind := None;
       Death_Reason    : Death_Cause := None;
@@ -95,7 +119,7 @@ package Snake is
    function Reachable_Free (W : World) return Integer;
    --  Empty and pellet cells reachable from the head without crossing the body.
 
-   function Cell (W : World; X, Y : Cell_Coord) return Cell_Kind;
+   function Cell (W : World; X : Cell_X; Y : Cell_Y) return Cell_Kind;
 
    function Interval_Ms (W : World) return Integer
      with Post => Interval_Ms'Result >= Min_Interval;

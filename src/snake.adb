@@ -60,7 +60,7 @@ package body Snake is
          when Left  => X := X - 1;
          when Right => X := X + 1;
       end case;
-      if X < 1 or X > Grid_Size or Y < 1 or Y > Grid_Size then
+      if X < 1 or X > Grid_Width or Y < 1 or Y > Grid_Height then
          Valid := False;
          return P;
       end if;
@@ -94,7 +94,7 @@ package body Snake is
       return False;
    end Occupies;
 
-   function Cell (W : World; X, Y : Cell_Coord) return Cell_Kind is
+   function Cell (W : World; X : Cell_X; Y : Cell_Y) return Cell_Kind is
    begin
       if W.Food.X = X and then W.Food.Y = Y then
          return Pellet;
@@ -141,9 +141,9 @@ package body Snake is
    end Has_Escape;
 
    function Reachable_Free (W : World) return Integer is
-      Visited : array (Cell_Coord, Cell_Coord) of Boolean :=
+      Visited : array (Cell_X, Cell_Y) of Boolean :=
         [others => [others => False]];
-      Queue   : array (1 .. Grid_Size * Grid_Size) of Position;
+      Queue   : array (1 .. Grid_Cells) of Position;
       Head_Q  : Integer := 1;
       Tail_Q  : Integer := 1;
       Count   : Integer := 0;
@@ -197,8 +197,8 @@ package body Snake is
       Pick        : Integer;
       Seen        : Integer := 0;
    begin
-      for Y in Cell_Coord loop
-         for X in Cell_Coord loop
+      for Y in Cell_Y loop
+         for X in Cell_X loop
             if not Occupies (W, (X, Y), False) then
                Empty_Count := Empty_Count + 1;
             end if;
@@ -210,8 +210,8 @@ package body Snake is
          return;
       end if;
       Pick := Next_Random (W.Pellet_Rng, Empty_Count);
-      for Y in Cell_Coord loop
-         for X in Cell_Coord loop
+      for Y in Cell_Y loop
+         for X in Cell_X loop
             if not Occupies (W, (X, Y), False) then
                if Seen = Pick then
                   W.Food := (X, Y);
@@ -239,10 +239,8 @@ package body Snake is
          W.Log_Count := W.Log_Count + 1;
          W.Log (W.Log_Count) := Code;
       else
-         for I in 1 .. Max_Log - 1 loop
-            W.Log (I) := W.Log (I + 1);
-         end loop;
-         W.Log (Max_Log) := Code;
+         --  Cap is fixed (no heap). Drop later moves and say so.
+         W.Log_Truncated := True;
       end if;
    end Note_Action;
 
@@ -275,6 +273,12 @@ package body Snake is
       end if;
       Mix (H, Death_Cause'Pos (W.Death_Reason));
       Mix (H, W.Enclosed_Area);
+      Mix (H, W.Log_Count);
+      if W.Log_Truncated then
+         Mix (H, 1);
+      else
+         Mix (H, 0);
+      end if;
       for I in 1 .. W.Length loop
          Mix (H, W.Segments (I).X);
          Mix (H, W.Segments (I).Y);
@@ -306,14 +310,13 @@ package body Snake is
       Best_Turns      : Turn_Count;
       Best_Length     : Length_Count)
    is
-      Mid : constant Cell_Coord := 10;
    begin
       W :=
         (Segments       => [others => (1, 1)],
          Length         => Start_Length,
          Food           => (1, 1),
-         Dir            => Right,
-         Pending        => Right,
+         Dir            => Start_Dir,
+         Pending        => Start_Dir,
          Score          => 0,
          Turns          => 0,
          Pellets        => 0,
@@ -330,13 +333,14 @@ package body Snake is
          Auto_On        => False,
          Log            => [others => 0],
          Log_Count      => 0,
+         Log_Truncated  => False,
          Hash           => 0,
          Last_Event     => None,
          Death_Reason   => None,
          Enclosed_Area  => 0);
-      W.Segments (1) := (X => Mid, Y => Mid);
-      W.Segments (2) := (X => Mid - 1, Y => Mid);
-      W.Segments (3) := (X => Mid - 2, Y => Mid);
+      W.Segments (1) := Start_Head;
+      W.Segments (2) := Start_Neck;
+      W.Segments (3) := Start_Tail;
       Seed_Rng (W.Pellet_Rng, Pellet_Seed);
       Seed_Rng (W.Behaviour_Rng, Behaviour_Seed);
       Place_Food (W);
