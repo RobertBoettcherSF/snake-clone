@@ -42,59 +42,58 @@ fills the board. Shortcuts stay in the forward cycle gap and never jump
 over the tail; the omitted cell is taken by a tail-safe one-off when the
 head is adjacent. While the snake is short, it takes a shortest grid path
 that stays in that gap (and does not skip the pellet) if a virtual run
-stays tail-safe, then blends back to cycle play as length grows. Score
-ranks ahead of turns; turns break ties. A finished run is ranked as
-`fitness = score × 100000 − turns`.
+stays tail-safe, then blends back to cycle play as length grows. From
+length 100 it only follows the cycle itself, so a late jump cannot leave
+a hole that costs a full lap. Score ranks ahead of turns; turns break
+ties. A finished run is ranked as `fitness = score × 100000 − turns`.
 
 The cycle geometry, the gap rule, the report fields, and why v0.1 trapped
 itself are in `docs/ALGORITHM.md`. How the project arrived at 23×11 after
 shipping 20×20 by mistake is in `docs/HOW_WE_GOT_HERE.md`.
 
-## Auto-player batch (v0.3 vs v0.4)
+## Auto-player batch (v0.5 vs v0.6)
 
 Native runs of 100 seed pairs `(k, k)` for `k = 1 .. 100` on the same
 23×11 board, each played to a win, a death, or a 200 000-turn cap.
 `first10` is the number of turns used to eat the first 10 pellets.
-v0.3 is commit `8a923fb`; v0.2 was 20×20 (100/100, mean turns 44073) and
-is not comparable (see `docs/HOW_WE_GOT_HERE.md`).
+v0.5 is commit `76b2ab2` (the auto-player was unchanged from v0.4).
+Earlier 23×11 batches are in `docs/HOW_WE_GOT_HERE.md`.
 
-| | v0.3 (23×11) | v0.4 (23×11) |
+| | v0.5 (23×11) | v0.6 (23×11) |
 |---|---:|---:|
 | Mean score | 2500.0 | 2500.0 |
 | Median score | 2500.0 | 2500.0 |
 | Mean length | 253.0 | 253.0 |
 | Median length | 253.0 | 253.0 |
-| Mean turns | 18646.0 | 18629.1 |
-| Median turns | 18722.0 | 18499.0 |
-| Mean first10 | 220.1 | 165.5 |
-| Median first10 | 218.5 | 164.0 |
+| Mean turns | 18629.1 | 10682.8 |
+| Median turns | 18499.0 | 10584.0 |
+| Mean first10 | 165.5 | 165.5 |
+| Median first10 | 164.0 | 164.0 |
 | Wins | 100 / 100 | 100 / 100 |
 
 Seeds **1/1**:
 
-| | v0.3 | v0.4 |
+| | v0.5 | v0.6 |
 |---|---:|---:|
 | Score | 2500 | 2500 |
 | Length | 253 | 253 |
-| Turns | 18830 | 18396 |
-| First 10 pellets | 214 | 146 |
+| Turns | 18396 | 11790 |
+| First 10 pellets | 146 | 146 |
 | Result | won (board full) | won (board full) |
 
 The default `./run-tests.sh` smoke asserts the grid is 23×11 (and not
 square) and requires seeds 1/1 to fill that board and terminate. The
 100-seed batch is `./run-batch.sh`.
 
-## Size (v0.3 → v0.4)
+## Size (v0.5 → v0.6)
 
-| | v0.3 | v0.4 |
+| | v0.5 | v0.6 |
 |---|---:|---:|
-| Ada `src/` lines | 1,531 | 1,749 |
-| of which `snake-auto.adb` | 427 | 636 |
-| `web/template.html` lines | 603 | 603 |
-| `docs/index.html` | 44,542 bytes | 51,522 bytes |
-| Wasm module | 15,172 bytes | 20,409 bytes |
-
-v0.5 is a page-only change: `web/template.html` 603 → 688 lines, `docs/index.html` 51,522 → 54,416 bytes, wasm unchanged at 20,409 bytes.
+| Ada `src/` lines | 1,749 | 1,762 |
+| of which `snake-auto.adb` | 636 | 643 |
+| `web/template.html` lines | 688 | 688 |
+| `docs/index.html` | 54,416 bytes | 54,464 bytes |
+| Wasm module | 20,409 bytes | 20,444 bytes |
 
 ## Build and test
 
@@ -124,7 +123,7 @@ Curl-verify the live URL and `version.txt` from raw GitHub before announcing.
 | Path | What it is |
 |---|---|
 | `src/snake.ads/.adb` | grid, snake, pellets, collisions, score, hashes, action log |
-| `src/snake-auto.ads/.adb` | 252-cycle, forward-gap, early in-gap shortest path, tail-reach auto-player |
+| `src/snake-auto.ads/.adb` | 252-cycle, forward-gap, early in-gap shortest path, endgame hold, tail-reach auto-player |
 | `src/snake-api.ads/.adb` | integer exports the page calls (`sn_*`) |
 | `src/last_chance_handler.adb` | reports file and line to the host if a check fails |
 | `tests/smoke.adb` | native `-gnata` smokes, including 23×11 and seeds 1/1 |

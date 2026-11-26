@@ -483,8 +483,11 @@ package body Snake.Auto is
       --  1. Early game: a shortest path that stays inside the forward
       --     gap, if a virtual run stays tail-safe. That keeps the body
       --     a forward cycle set so mid-game gap play still works. The
-      --     blend shrinks this as the snake grows.
-      if W.Length <= Direct_Blend_Length then
+      --     blend shrinks this as the snake grows. After the endgame
+      --     hold, jumps are refused so new holes are not opened.
+      if W.Length < Endgame_Hold_Length
+        and then W.Length <= Direct_Blend_Length
+      then
          declare
             Food_Dir : Direction;
             Path_Len : Integer;
@@ -564,8 +567,12 @@ package body Snake.Auto is
                     (Head_P, Next_P, W.Segments (W.Length), Eating)
                   then
                      Score := Forward_Dist (Head_P, Next_P);
-                     if Food_On and then To_Food < To_Tail then
+                     if Food_On and then To_Food < To_Tail
+                       and then W.Length < Endgame_Hold_Length
+                     then
                         --  Strongest safe in-gap shortcut toward food.
+                        --  After the hold, only Cycle_Next is scored so
+                        --  a jump cannot leave a hole behind the head.
                         if Score <= To_Food then
                            Score := 10_000 * Score;
                         else

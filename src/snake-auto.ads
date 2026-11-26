@@ -4,10 +4,12 @@ package Snake.Auto is
    --  path that stays in the forward gap (and does not skip the
    --  pellet) is always preferred. Between that and Direct_Blend_Length
    --  the path is taken only if the cycle way is at least twice as
-   --  long. Above the blend end, play stays on the 252-cycle. Values
-   --  were confirmed on the 100-seed batch (100/100 wins).
+   --  long. From Endgame_Hold_Length, Auto takes only Cycle_Next (plus
+   --  the omitted-cell one-off), so new cycle-jump holes are not
+   --  opened. Values were confirmed on the 100-seed batch (100/100).
    Early_Direct_Length : constant := 60;
    Direct_Blend_Length : constant := 120;
+   Endgame_Hold_Length : constant := 100;
 
 
    procedure Choose (W : in out World)
@@ -19,7 +21,9 @@ package Snake.Auto is
    --  the omitted cell is taken by a tail-safe one-off when the head is
    --  adjacent. While the snake is short, a shortest path that stays
    --  in the forward gap is taken if a virtual run stays tail-safe.
-   --  The behaviour seed breaks ties only. Score beats turns.
+   --  From Endgame_Hold_Length only Cycle_Next is taken, so late
+   --  full-lap "food in a hole" chases stay rare. The behaviour seed
+   --  breaks ties only. Score beats turns.
 
    function On_Cycle (P : Position) return Boolean;
    --  True if P is one of the 252 cells of the near-cycle (not Omitted_Cell).

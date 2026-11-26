@@ -28,7 +28,7 @@ if git status --porcelain >/dev/null 2>&1 && [ -n "$(git status --porcelain)" ];
   SOURCE_SHA="${SOURCE_SHA}+"
 fi
 # Build clock is Europe/Berlin (D-005).
-STAMP="v0.5 b$(TZ=Europe/Berlin date +%Y%m%d-%H%M) $SOURCE_SHA"
+STAMP="v0.6 b$(TZ=Europe/Berlin date +%Y%m%d-%H%M) $SOURCE_SHA"
 
 rm -rf obj/wasm
 mkdir -p obj/wasm docs

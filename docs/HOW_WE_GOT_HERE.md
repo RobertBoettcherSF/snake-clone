@@ -114,6 +114,35 @@ that is running. Human play is unchanged. F9 still opens the report
 prompt. The F9 and Auto-stop reports record `debug`. The Ada core and
 the 252-cycle auto-player are unchanged.
 
+
+## v0.6 — endgame hold, fewer full-lap chases
+
+Robert’s v0.5 Auto-stop report on seeds 1/1 (stamp
+`v0.5 b20261126-1612 76b2ab2`, Debug on) confirmed the same 18,396-turn
+clear as v0.4 (score 2500, length 253, fitness 249981604). Early play
+was already tight (first ten pellets 146 turns vs Manhattan 98). The
+waste was later: a grid-adjacent cycle jump leaves a hole behind the
+head, and a pellet that lands in that hole is not in the forward gap,
+so Auto walks almost a full 252-lap to come back. On that 1/1 run,
+turns by start-of-chase length were:
+
+- length ≤ 60: 1,686 turns (58 pellets)
+- 61–120: 4,157 (60)
+- 121–200: 7,618 (80)
+- 201–252: 4,935 (52)
+
+Of the 18,396 turns, 17,704 (96%) were on chases where the food was
+not in the gap, including 22 chases of 200 turns or more.
+
+v0.6 keeps the 60/120 early in-gap shortest path and, from length 100,
+refuses those jumps (`Cycle_Next` only, plus the omitted-cell one-off).
+On the same 1/1 seeds the clear drops to 11,790 turns; the first ten
+pellets stay at 146, early (≤60) stays at 1,686, mid “food not in the
+gap” turns fall from 7,443 to 95, and ≥200-turn laps fall from 22 to
+5. Raising the midgame direct thresholds (120/200, or always-on) was
+measured on the 100-seed batch and made mean turns *worse*. See the
+README table.
+
 ## Fitness, seeds, report, build
 
 - Fitness of a finished run: `score × 100000 − turns`. Length is not a

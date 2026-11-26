@@ -82,6 +82,23 @@ mid-game gap play is unchanged. An unconstrained shortest path that
 leaves the gap (or jumps past the pellet) was tried and rejected: it
 shaved more early turns but could loop without eating.
 
+## Endgame hold (no new holes)
+
+A cycle jump (`Forward_Dist > 1` to a grid neighbour) leaves a hole
+behind the head, in cells the body now skips. If the next pellet lands
+in that hole, it is not in the forward gap, and Auto must walk almost
+the whole remaining cycle (often ~251 turns) before the tail opens it.
+On Robert’s v0.5 seeds 1/1 report (18,396 turns), 96% of turns were
+those “food not in the gap” chases, mostly mid and late game; in-gap
+chases were already close to a shortest path (692 turns vs BFS 656).
+
+From `Endgame_Hold_Length` (100), Auto therefore takes only
+`Cycle_Next` (and the omitted-cell one-off). Early in-gap shortest
+paths (length ≤ 60, blending until 120) are unchanged, so the first
+ten pellets stay as in v0.4/v0.5. Raising the midgame direct thresholds
+instead opened more holes and *increased* total turns on the 100-seed
+batch.
+
 ## One-off for the omitted cell
 
 `(23, 1)` is not on the cycle. If the pellet is there and the head is
@@ -116,5 +133,5 @@ The action log stores one integer per turn: `Code_Of(direction)`, plus
 10 if the heading came from Auto (so 11..14 are auto moves). The log is
 a fixed array, cap 65536. New moves after the cap are dropped and
 `log_truncated` becomes true; the report still names the cap. A full
-23×11 clear under this player has been well under the cap (about 18–19k
-turns in the v0.3 and v0.4 batches).
+23×11 clear under this player has been well under the cap (about 10–12k
+turns in the v0.6 batch, 18–19k in v0.3–v0.5).
