@@ -110,6 +110,7 @@ stamp, both seeds, `test_key`, state hash, action log, events, and
 - `enclosed_area` (free cells reachable from the head)
 - `grid_width`, `grid_height` (23 and 11)
 - `interval_ms`, `log_cap` (65536), `log_truncated`
+- `debug` (whether the Debug toggle was on; it only affects Auto speed)
 
 The action log stores one integer per turn: `Code_Of(direction)`, plus
 10 if the heading came from Auto (so 11..14 are auto moves). The log is

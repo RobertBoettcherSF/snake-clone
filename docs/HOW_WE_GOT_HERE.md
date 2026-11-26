@@ -103,6 +103,17 @@ ten pellets. See the README table. The v0.3 README figure of 44,544
 bytes for `docs/index.html` was a two-byte slip; the deployed v0.3 page
 was 44,542 bytes.
 
+
+## v0.5 — Debug toggle, Auto at full speed
+
+v0.5 is a page change only. The existing Debug button is a toggle (on by
+default, kept in `localStorage`). With Debug on, Auto bursts as many
+ticks as fit in about 12 ms of each animation frame and redraws once;
+a full clear takes a few seconds. A live moves/s figure is shown while
+that is running. Human play is unchanged. F9 still opens the report
+prompt. The F9 and Auto-stop reports record `debug`. The Ada core and
+the 252-cycle auto-player are unchanged.
+
 ## Fitness, seeds, report, build
 
 - Fitness of a finished run: `score × 100000 − turns`. Length is not a

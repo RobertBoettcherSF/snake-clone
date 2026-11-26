@@ -24,9 +24,15 @@ It does not decide where the snake turns or where a pellet lands.
 - **Auto** starts a run at once and becomes **Stop** while auto-play is
   running. Stop, or a death or win during Auto, downloads a `poncelet-report`
   v1 file (stamp, both seeds, score, length, turns, bests, fitness, action
-  log, state hash, grid size, death reason, enclosed-area size, log cap).
-- Arrows or WASD, swipe on a phone. Space pauses, R restarts, F9 (or
-  **Debug**) pauses and downloads a report. Sound off, en-GB / de / es / fr.
+  log, state hash, grid size, death reason, enclosed-area size, log cap,
+  Debug toggle).
+- **Debug** is a toggle, on by default, remembered in the browser. With
+  Debug on, Auto runs at full speed (as many ticks as fit in about 12 ms
+  per animation frame, redraw once per frame) and shows a live moves/s
+  figure. Human play always uses the ordinary speed-up, even if Debug is
+  on. F9 still pauses and downloads a report.
+- Arrows or WASD, swipe on a phone. Space pauses, R restarts, F9 downloads
+  a report. Sound off, en-GB / de / es / fr.
 
 The auto-player uses only what a player can see. It follows a 252-cell
 near-cycle on the 23×11 board (253 is odd, so no Hamiltonian cycle; the
@@ -87,6 +93,8 @@ square) and requires seeds 1/1 to fill that board and terminate. The
 | `web/template.html` lines | 603 | 603 |
 | `docs/index.html` | 44,542 bytes | 51,522 bytes |
 | Wasm module | 15,172 bytes | 20,409 bytes |
+
+v0.5 is a page-only change: `web/template.html` 603 → 688 lines, `docs/index.html` 51,522 → 54,416 bytes, wasm unchanged at 20,409 bytes.
 
 ## Build and test
 
