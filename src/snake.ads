@@ -38,6 +38,9 @@ package Snake is
    end record;
 
    type Event_Kind is (None, Moved, Ate, Died, Won);
+   type Death_Cause is (None, Wall, Self, Trapped);
+   Compact_Length : constant := Grid_Size * Grid_Size / 3;  -- 133, about 1/3 of the board
+   Cycle_Length   : constant := 252;
 
    type World is record
       Segments        : Body_Array := [others => (1, 1)];
@@ -63,6 +66,8 @@ package Snake is
       Log_Count       : Log_Index := 0;
       Hash            : Integer := 0;
       Last_Event      : Event_Kind := None;
+      Death_Reason    : Death_Cause := None;
+      Enclosed_Area   : Integer := 0;
    end record;
 
    procedure Seed_Rng (R : out Rng_State; Seed : Seed_Value);
@@ -80,6 +85,15 @@ package Snake is
 
    function Occupies
      (W : World; P : Position; Ignore_Tail : Boolean) return Boolean;
+
+   function Immediate_Fatal (W : World; D : Direction) return Boolean;
+   --  True if heading D hits a wall, the body, or is a reverse with length > 1.
+
+   function Has_Escape (W : World) return Boolean;
+   --  True if at least one heading is not Immediate_Fatal.
+
+   function Reachable_Free (W : World) return Integer;
+   --  Empty and pellet cells reachable from the head without crossing the body.
 
    function Cell (W : World; X, Y : Cell_Coord) return Cell_Kind;
 

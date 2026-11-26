@@ -301,6 +301,8 @@ function buildReport(reason, expected) {
       alive: M.sn_alive() !== 0,
       won: M.sn_won() !== 0,
       reason: reason,
+      death_reason: (["none", "wall", "self", "trapped"][M.sn_death_reason()] || "none"),
+      enclosed_area: M.sn_enclosed_area(),
       interval_ms: M.sn_interval_ms()
     }
   };

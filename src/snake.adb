@@ -113,6 +113,70 @@ package body Snake is
       return Empty;
    end Cell;
 
+
+   function Immediate_Fatal (W : World; D : Direction) return Boolean is
+      Ok     : Boolean;
+      Next_P : Position;
+      Eating : Boolean;
+   begin
+      if W.Length > 1 and then D = Opposite (W.Dir) then
+         return True;
+      end if;
+      Next_P := Ahead (W.Segments (1), D, Ok);
+      if not Ok then
+         return True;
+      end if;
+      Eating := Next_P.X = W.Food.X and then Next_P.Y = W.Food.Y;
+      return Occupies (W, Next_P, Ignore_Tail => not Eating);
+   end Immediate_Fatal;
+
+   function Has_Escape (W : World) return Boolean is
+   begin
+      for D in Direction loop
+         if not Immediate_Fatal (W, D) then
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Has_Escape;
+
+   function Reachable_Free (W : World) return Integer is
+      Visited : array (Cell_Coord, Cell_Coord) of Boolean :=
+        [others => [others => False]];
+      Queue   : array (1 .. Grid_Size * Grid_Size) of Position;
+      Head_Q  : Integer := 1;
+      Tail_Q  : Integer := 1;
+      Count   : Integer := 0;
+      Cur, Nxt : Position;
+      Ok      : Boolean;
+      Start   : Position;
+   begin
+      if W.Length < 1 then
+         return 0;
+      end if;
+      Start := W.Segments (1);
+      Queue (1) := Start;
+      Visited (Start.X, Start.Y) := True;
+      Tail_Q := 2;
+      while Head_Q < Tail_Q loop
+         Cur := Queue (Head_Q);
+         Head_Q := Head_Q + 1;
+         for D in Direction loop
+            Nxt := Ahead (Cur, D, Ok);
+            if Ok
+              and then not Visited (Nxt.X, Nxt.Y)
+              and then not Occupies (W, Nxt, Ignore_Tail => False)
+            then
+               Visited (Nxt.X, Nxt.Y) := True;
+               Queue (Tail_Q) := Nxt;
+               Tail_Q := Tail_Q + 1;
+               Count := Count + 1;
+            end if;
+         end loop;
+      end loop;
+      return Count;
+   end Reachable_Free;
+
    function Interval_Ms (W : World) return Integer is
       Levels : constant Integer := W.Pellets / Food_Per_Speed;
       Raw    : constant Integer := Base_Interval - Levels * Interval_Step;
@@ -209,6 +273,8 @@ package body Snake is
       if W.Won then
          Mix (H, 3);
       end if;
+      Mix (H, Death_Cause'Pos (W.Death_Reason));
+      Mix (H, W.Enclosed_Area);
       for I in 1 .. W.Length loop
          Mix (H, W.Segments (I).X);
          Mix (H, W.Segments (I).Y);
@@ -265,7 +331,9 @@ package body Snake is
          Log            => [others => 0],
          Log_Count      => 0,
          Hash           => 0,
-         Last_Event     => None);
+         Last_Event     => None,
+         Death_Reason   => None,
+         Enclosed_Area  => 0);
       W.Segments (1) := (X => Mid, Y => Mid);
       W.Segments (2) := (X => Mid - 1, Y => Mid);
       W.Segments (3) := (X => Mid - 2, Y => Mid);
@@ -275,6 +343,7 @@ package body Snake is
       if W.Best_Length < Start_Length then
          W.Best_Length := Start_Length;
       end if;
+      W.Enclosed_Area := Reachable_Free (W);
       Refresh_Hash (W);
    end Init;
 
@@ -311,6 +380,12 @@ package body Snake is
       if not Valid then
          W.Alive := False;
          W.Last_Event := Died;
+         if Has_Escape (W) then
+            W.Death_Reason := Wall;
+         else
+            W.Death_Reason := Trapped;
+         end if;
+         W.Enclosed_Area := Reachable_Free (W);
          if W.Turns < Turn_Count'Last then
             W.Turns := W.Turns + 1;
          end if;
@@ -322,6 +397,12 @@ package body Snake is
       if Occupies (W, Next_P, Ignore_Tail => not Eating) then
          W.Alive := False;
          W.Last_Event := Died;
+         if Has_Escape (W) then
+            W.Death_Reason := Self;
+         else
+            W.Death_Reason := Trapped;
+         end if;
+         W.Enclosed_Area := Reachable_Free (W);
          if W.Turns < Turn_Count'Last then
             W.Turns := W.Turns + 1;
          end if;
@@ -358,6 +439,7 @@ package body Snake is
       else
          W.Last_Event := Moved;
       end if;
+      W.Enclosed_Area := Reachable_Free (W);
       Refresh_Bests (W);
       Refresh_Hash (W);
    end Step;

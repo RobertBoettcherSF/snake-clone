@@ -15,4 +15,4 @@ In the wasm / engine core (`src/snake.ads`, `src/snake.adb`, `src/snake-auto.ads
 - [x] Fixed point where native and wasm results must match; no `Math.random` or wall-clock in rules
 - [x] English identifiers
 
-The host ABI (`src/snake-api.ads/.adb`) holds one `World` for the page to call. Native `tests/smoke.adb` may use `Text_IO`. The last-chance handler lives in `src/last_chance_handler.adb` and reports file and line to the JS host.
+The host ABI (`src/snake-api.ads/.adb`) holds one `World` for the page to call. Native `tests/smoke.adb` and `tests/batch.adb` may use `Text_IO`. The last-chance handler lives in `src/last_chance_handler.adb` and reports file and line to the JS host.

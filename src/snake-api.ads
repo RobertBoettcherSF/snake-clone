@@ -82,6 +82,10 @@ package Snake.Api is
    pragma Export (C, Error_Length, "sn_error_length");
    function Error_Char (Index : I32) return I32;
    pragma Export (C, Error_Char, "sn_error_char");
+   function Death_Reason return I32;
+   pragma Export (C, Death_Reason, "sn_death_reason");
+   function Enclosed_Area return I32;
+   pragma Export (C, Enclosed_Area, "sn_enclosed_area");
 
    --  Filled by the last-chance handler (wasm).
    procedure Store_Error (Line : Integer; Text : String);

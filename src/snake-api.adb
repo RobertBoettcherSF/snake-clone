@@ -316,4 +316,14 @@ package body Snake.Api is
       return 0;
    end Error_Char;
 
+   function Death_Reason return I32 is
+   begin
+      return I32 (Death_Cause'Pos (The_World.Death_Reason));
+   end Death_Reason;
+
+   function Enclosed_Area return I32 is
+   begin
+      return I32 (The_World.Enclosed_Area);
+   end Enclosed_Area;
+
 end Snake.Api;

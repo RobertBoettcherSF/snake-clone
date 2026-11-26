@@ -160,6 +160,24 @@ begin
    Check (Occupies (W, P, Ignore_Tail => False), "tail is occupied");
    Check (not Occupies (W, P, Ignore_Tail => True), "vacating tail is free");
 
+   --  v0.2: seeds 1/1 must beat the v0.1 death score of 570, and must
+   --  finish (win or die) rather than livelock in a late stall.
+   Init (W, 1, 1, 0, 0, 0);
+   Set_Auto (W, True);
+   declare
+      Guard     : Integer := 0;
+      Max_Guard : constant := 100_000;
+   begin
+      while W.Alive and then not W.Won and then Guard < Max_Guard loop
+         Snake.Auto.Choose (W);
+         Note_Action (W, W.Pending, True);
+         Step (W);
+         Guard := Guard + 1;
+      end loop;
+      Check (W.Score > 570, "seeds 1/1 score beats 570");
+      Check (Guard < Max_Guard, "seeds 1/1 terminates");
+   end;
+
    if Failed = 0 then
       Put_Line ("All smoke checks passed.");
    else
