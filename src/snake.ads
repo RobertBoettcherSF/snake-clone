@@ -22,7 +22,6 @@ package Snake is
    --  Log_Truncated is set; the report records both the cap and the flag.
    Max_Log         : constant := 65_536;
    Fitness_Scale   : constant := 100_000;
-   Compact_Length  : constant := Grid_Cells / 3;  -- 84, about 1/3 of the board
 
    subtype Cell_X is Integer range 1 .. Grid_Width;
    subtype Cell_Y is Integer range 1 .. Grid_Height;

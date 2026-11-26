@@ -34,54 +34,59 @@ cell (23, 1) is omitted). A heading is taken only if the new head can
 still reach its own tail (BFS), or if the step is the last pellet and
 fills the board. Shortcuts stay in the forward cycle gap and never jump
 over the tail; the omitted cell is taken by a tail-safe one-off when the
-head is adjacent. Score ranks ahead of turns; turns break ties. A finished
-run is ranked as `fitness = score × 100000 − turns`.
+head is adjacent. While the snake is short, it takes a shortest grid path
+that stays in that gap (and does not skip the pellet) if a virtual run
+stays tail-safe, then blends back to cycle play as length grows. Score
+ranks ahead of turns; turns break ties. A finished run is ranked as
+`fitness = score × 100000 − turns`.
 
 The cycle geometry, the gap rule, the report fields, and why v0.1 trapped
 itself are in `docs/ALGORITHM.md`. How the project arrived at 23×11 after
 shipping 20×20 by mistake is in `docs/HOW_WE_GOT_HERE.md`.
 
-## Auto-player batch (v0.2 vs v0.3)
+## Auto-player batch (v0.3 vs v0.4)
 
-Native runs of 100 seed pairs `(k, k)` for `k = 1 .. 100`, each played to a
-win, a death, or a 200 000-turn cap. **The boards differ**, so scores and
-turns are not directly comparable: v0.2 is 20×20 (max score 3970, length
-400) from commit `5c04bd7` / the v0.2 batch; v0.3 is 23×11 (max score 2500,
-length 253).
+Native runs of 100 seed pairs `(k, k)` for `k = 1 .. 100` on the same
+23×11 board, each played to a win, a death, or a 200 000-turn cap.
+`first10` is the number of turns used to eat the first 10 pellets.
+v0.3 is commit `8a923fb`; v0.2 was 20×20 (100/100, mean turns 44073) and
+is not comparable (see `docs/HOW_WE_GOT_HERE.md`).
 
-| | v0.2 (20×20) | v0.3 (23×11) |
+| | v0.3 (23×11) | v0.4 (23×11) |
 |---|---:|---:|
-| Mean score | 3970.0 | 2500.0 |
-| Median score | 3970.0 | 2500.0 |
-| Mean length | 400.0 | 253.0 |
-| Median length | 400.0 | 253.0 |
-| Mean turns | 44073.0 | 18646.0 |
-| Median turns | 44099.0 | 18722.0 |
+| Mean score | 2500.0 | 2500.0 |
+| Median score | 2500.0 | 2500.0 |
+| Mean length | 253.0 | 253.0 |
+| Median length | 253.0 | 253.0 |
+| Mean turns | 18646.0 | 18629.1 |
+| Median turns | 18722.0 | 18499.0 |
+| Mean first10 | 220.1 | 165.5 |
+| Median first10 | 218.5 | 164.0 |
 | Wins | 100 / 100 | 100 / 100 |
 
 Seeds **1/1**:
 
-| | v0.2 (20×20) | v0.3 (23×11) |
+| | v0.3 | v0.4 |
 |---|---:|---:|
-| Score | 3970 | 2500 |
-| Length | 400 | 253 |
-| Turns | 42590 | 18830 |
+| Score | 2500 | 2500 |
+| Length | 253 | 253 |
+| Turns | 18830 | 18396 |
+| First 10 pellets | 214 | 146 |
 | Result | won (board full) | won (board full) |
 
-v0.1 on the same 20×20 seeds 1/1 died at score 570, length 60, turns 867.
 The default `./run-tests.sh` smoke asserts the grid is 23×11 (and not
 square) and requires seeds 1/1 to fill that board and terminate. The
 100-seed batch is `./run-batch.sh`.
 
-## Size (v0.2 → v0.3)
+## Size (v0.3 → v0.4)
 
-| | v0.2 | v0.3 |
+| | v0.3 | v0.4 |
 |---|---:|---:|
-| Ada `src/` lines | 1,752 | 1,531 |
-| of which `snake-auto.adb` | 691 | 427 |
-| `web/template.html` lines | 596 | 603 |
-| `docs/index.html` | 65,971 bytes | 44,544 bytes |
-| Wasm module | 31,412 bytes | 15,172 bytes |
+| Ada `src/` lines | 1,531 | 1,749 |
+| of which `snake-auto.adb` | 427 | 636 |
+| `web/template.html` lines | 603 | 603 |
+| `docs/index.html` | 44,542 bytes | 51,522 bytes |
+| Wasm module | 15,172 bytes | 20,409 bytes |
 
 ## Build and test
 
@@ -111,7 +116,7 @@ Curl-verify the live URL and `version.txt` from raw GitHub before announcing.
 | Path | What it is |
 |---|---|
 | `src/snake.ads/.adb` | grid, snake, pellets, collisions, score, hashes, action log |
-| `src/snake-auto.ads/.adb` | 252-cycle, forward-gap, tail-reach auto-player |
+| `src/snake-auto.ads/.adb` | 252-cycle, forward-gap, early in-gap shortest path, tail-reach auto-player |
 | `src/snake-api.ads/.adb` | integer exports the page calls (`sn_*`) |
 | `src/last_chance_handler.adb` | reports file and line to the host if a check fails |
 | `tests/smoke.adb` | native `-gnata` smokes, including 23×11 and seeds 1/1 |

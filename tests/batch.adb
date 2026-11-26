@@ -1,5 +1,6 @@
 --  Native batch: 100 seed pairs (k, k) for k = 1 .. 100.
---  Reports mean/median score, length and turns, plus the win count.
+--  Reports mean/median score, length, turns, and turns to the first
+--  10 pellets, plus the win count.
 with Ada.Text_IO;
 with Snake;
 with Snake.Auto;
@@ -12,12 +13,12 @@ procedure Batch is
    Max_Ticks : constant := 200_000;
    N         : constant Integer := 100;
 
-   Scores, Lengths, Turns : Counts := [others => 0];
+   Scores, Lengths, Turns, First10 : Counts := [others => 0];
    Wins, Caps             : Integer := 0;
    Wall_N, Self_N, Trap_N : Integer := 0;
    K, Guard               : Integer;
    W                      : World;
-   Sum_S, Sum_L, Sum_T    : Long_Integer := 0;
+   Sum_S, Sum_L, Sum_T, Sum_F : Long_Integer := 0;
 
    procedure Sort (A : in out Counts) is
       J     : Integer;
@@ -68,18 +69,26 @@ begin
       Init (W, Seed_Value (K), Seed_Value (K), 0, 0, 0);
       Set_Auto (W, True);
       Guard := 0;
+      First10 (I) := 0;
       while W.Alive and then not W.Won and then Guard < Max_Ticks loop
          Snake.Auto.Choose (W);
          Note_Action (W, W.Pending, True);
          Step (W);
          Guard := Guard + 1;
+         if First10 (I) = 0 and then W.Pellets >= 10 then
+            First10 (I) := Integer (W.Turns);
+         end if;
       end loop;
+      if First10 (I) = 0 then
+         First10 (I) := Integer (W.Turns);
+      end if;
       Scores (I) := Integer (W.Score);
       Lengths (I) := Integer (W.Length);
       Turns (I) := Integer (W.Turns);
       Sum_S := Sum_S + Long_Integer (W.Score);
       Sum_L := Sum_L + Long_Integer (W.Length);
       Sum_T := Sum_T + Long_Integer (W.Turns);
+      Sum_F := Sum_F + Long_Integer (First10 (I));
       if W.Won then
          Wins := Wins + 1;
       elsif Guard >= Max_Ticks then
@@ -108,12 +117,15 @@ begin
    Sort (Scores);
    Sort (Lengths);
    Sort (Turns);
+   Sort (First10);
 
    Put_Line ("BATCH n=" & Integer'Image (N) & " pairs (k,k) k=1..100");
    Put_Line ("mean_score " & Mean (Sum_S) & " median_score " & Median (Scores));
    Put_Line
      ("mean_length " & Mean (Sum_L) & " median_length " & Median (Lengths));
    Put_Line ("mean_turns " & Mean (Sum_T) & " median_turns " & Median (Turns));
+   Put_Line
+     ("mean_first10 " & Mean (Sum_F) & " median_first10 " & Median (First10));
    Put_Line ("wins" & Integer'Image (Wins) & "/" & Integer'Image (N));
    Put_Line
      ("deaths wall=" & Integer'Image (Wall_N)

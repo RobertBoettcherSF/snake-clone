@@ -73,6 +73,36 @@ run still overflows, later moves are dropped and the report sets
 Batch scores and turns are **not directly comparable** to v0.2: the board
 is smaller (max score 2500, not 3970). See the README table.
 
+
+## v0.4 — shorter early game, same 23×11 cycle
+
+Robert’s v0.3 Auto-stop report on seeds 1/1 (stamp
+`v0.3 b20261126-1310 8a923fb`) confirmed a full clear in 18830 turns
+(score 2500, length 253, fitness 249981170, log not truncated). Mid
+and endgame already played well. The waste was at the start: the first
+pellet sat at Manhattan 13 but 143 steps forward on the cycle, and was
+eaten on turn 41; the first ten pellets used 214 turns against a
+Manhattan sum of 102 (extra 112). Many early pellets had a tiny
+Manhattan distance and a huge forward cycle distance, because with a
+short snake the forward gap is almost the whole board and “food in the
+gap” still means walking the long way around.
+
+v0.4 keeps the 252-cycle and the forward-gap / no-jump-over-tail rule,
+and while the snake is short takes a shortest grid path that stays
+inside that gap and does not skip the pellet, after a virtual
+tail-safety check. A gradual blend (always at length ≤ 60, only if the
+cycle way is at least twice as long until 120) hands play back to the
+same mid/endgame policy. An earlier idea — an unconstrained shortest
+path plus a “rejoin the cycle after eating” check — cut early turns
+further but livelocked: the virtual rejoin did not match live play, and
+chained shortcuts left a body the gap rule could not recover.
+
+`Compact_Length` (unused since the v0.3 simplification) is removed. The
+100-seed batch still wins 100/100, now also reporting turns to the first
+ten pellets. See the README table. The v0.3 README figure of 44,544
+bytes for `docs/index.html` was a two-byte slip; the deployed v0.3 page
+was 44,542 bytes.
+
 ## Fitness, seeds, report, build
 
 - Fitness of a finished run: `score × 100000 − turns`. Length is not a

@@ -61,6 +61,27 @@ Stepping over the tail on the cycle is never allowed. That is what
 trapped v0.1: a greedy path left the body off a coherent gap, then the
 snake looped in a pocket with the pellet unapproachable.
 
+## Early-game in-gap shortest path
+
+While the snake is short, a longest cycle-jump still walks far around
+the board when the pellet’s forward cycle distance is large (on
+Robert’s v0.3 seeds 1/1 report the first pellet was Manhattan 13 but
+cycle distance 143, and the first ten pellets used 214 turns against
+a Manhattan sum of 102). v0.4 therefore, when `Length` is at most
+`Early_Direct_Length` (60), takes a **shortest grid path that stays
+inside the current forward gap and does not skip the pellet on the
+cycle**, provided a virtual run of that path stays tail-safe (BFS to
+the new tail after each imagined step, including the eat). Between 61
+and `Direct_Blend_Length` (120) that path is taken only if the cycle
+distance is at least twice the path length. Above 120, play is the
+same 252-cycle / forward-gap policy as v0.3.
+
+The path is rebuilt each turn and its first step is always a legal
+no-skip gap neighbour, so the body stays a forward cycle set and
+mid-game gap play is unchanged. An unconstrained shortest path that
+leaves the gap (or jumps past the pellet) was tried and rejected: it
+shaved more early turns but could loop without eating.
+
 ## One-off for the omitted cell
 
 `(23, 1)` is not on the cycle. If the pellet is there and the head is
@@ -95,4 +116,4 @@ The action log stores one integer per turn: `Code_Of(direction)`, plus
 a fixed array, cap 65536. New moves after the cap are dropped and
 `log_truncated` becomes true; the report still names the cap. A full
 23×11 clear under this player has been well under the cap (about 18–19k
-turns in the v0.3 batch).
+turns in the v0.3 and v0.4 batches).

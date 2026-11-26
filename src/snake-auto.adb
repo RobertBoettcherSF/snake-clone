@@ -2,6 +2,7 @@ package body Snake.Auto is
 
    type Occupied_Grid is array (Cell_X, Cell_Y) of Boolean;
    type Dir_Flags is array (Direction) of Boolean;
+   type Dir_Path is array (1 .. Grid_Cells) of Direction;
 
    function On_Cycle (P : Position) return Boolean is
    begin
@@ -264,6 +265,195 @@ package body Snake.Auto is
       return P.X = Omitted_Cell.X and then P.Y = Omitted_Cell.Y;
    end Is_Omitted;
 
+   procedure Apply_Step
+     (Segs   : in out Body_Array;
+      Len    : in out Length_Count;
+      D      : Direction;
+      Food   : Position;
+      Ate    : out Boolean;
+      Legal  : out Boolean)
+   is
+      Ok     : Boolean;
+      Next_P : Position;
+      Block  : Length_Count;
+   begin
+      Ate := False;
+      Legal := False;
+      Next_P := Ahead (Segs (1), D, Ok);
+      if not Ok then
+         return;
+      end if;
+      Ate := Next_P.X = Food.X and then Next_P.Y = Food.Y;
+      if Ate then
+         Block := Len;
+      else
+         Block := Len - 1;
+      end if;
+      if Body_Hits (Segs, Block, Next_P) then
+         return;
+      end if;
+      if not Ate then
+         for I in reverse 2 .. Len loop
+            Segs (I) := Segs (I - 1);
+         end loop;
+         Segs (1) := Next_P;
+      else
+         for I in reverse 1 .. Len loop
+            Segs (I + 1) := Segs (I);
+         end loop;
+         Segs (1) := Next_P;
+         Len := Len + 1;
+      end if;
+      Legal := True;
+   end Apply_Step;
+
+   function Cell_In_Gap (W : World; P : Position) return Boolean is
+      Eating : constant Boolean :=
+        P.X = W.Food.X and then P.Y = W.Food.Y;
+      To_P, To_Food : Integer;
+   begin
+      if not On_Cycle (W.Segments (1))
+        or else not On_Cycle (W.Segments (W.Length))
+        or else not On_Cycle (P)
+      then
+         return False;
+      end if;
+      if not In_Forward_Gap
+        (W.Segments (1), P, W.Segments (W.Length), Eating)
+      then
+         return False;
+      end if;
+      --  Never jump past the pellet on the cycle (same rule as the
+      --  longest-gap shortcut). The path may cut across empty gap
+      --  cells that still lie at or before the pellet.
+      To_P := Forward_Dist (W.Segments (1), P);
+      To_Food := Forward_Dist (W.Segments (1), W.Food);
+      return To_P <= To_Food;
+   end Cell_In_Gap;
+
+   function Shortest_In_Gap
+     (W : World; Path : out Dir_Path; Steps : out Integer) return Boolean
+   is
+      Visited : Occupied_Grid := [others => [others => False]];
+      Queue   : array (1 .. Grid_Cells) of Position;
+      Came    : array (Cell_X, Cell_Y) of Direction :=
+        [others => [others => Right]];
+      Head_Q, Tail_Q : Integer := 1;
+      Cur, Nxt, Start : Position;
+      Ok : Boolean := False;
+      I : Integer;
+      Rev : Dir_Path := [others => Right];
+   begin
+      Steps := 0;
+      Path := [others => Right];
+      Start := W.Segments (1);
+      if not On_Cycle (Start)
+        or else not On_Cycle (W.Segments (W.Length))
+        or else not Cell_In_Gap (W, W.Food)
+      then
+         return False;
+      end if;
+      if Start.X = W.Food.X and then Start.Y = W.Food.Y then
+         return False;
+      end if;
+      Queue (1) := Start;
+      Visited (Start.X, Start.Y) := True;
+      Tail_Q := 2;
+      while Head_Q < Tail_Q loop
+         Cur := Queue (Head_Q);
+         Head_Q := Head_Q + 1;
+         for D in Direction loop
+            Nxt := Ahead (Cur, D, Ok);
+            if Ok
+              and then not Visited (Nxt.X, Nxt.Y)
+              and then not Occupies (W, Nxt, Ignore_Tail => True)
+              and then Cell_In_Gap (W, Nxt)
+            then
+               Visited (Nxt.X, Nxt.Y) := True;
+               Came (Nxt.X, Nxt.Y) := D;
+               if Nxt.X = W.Food.X and then Nxt.Y = W.Food.Y then
+                  I := 0;
+                  Cur := Nxt;
+                  while Cur.X /= Start.X or else Cur.Y /= Start.Y loop
+                     I := I + 1;
+                     Rev (I) := Came (Cur.X, Cur.Y);
+                     declare
+                        Back : constant Direction := Opposite (Rev (I));
+                        P    : Position;
+                        V    : Boolean;
+                     begin
+                        P := Ahead (Cur, Back, V);
+                        Cur := P;
+                     end;
+                  end loop;
+                  Steps := I;
+                  for K in 1 .. Steps loop
+                     Path (K) := Rev (Steps - K + 1);
+                  end loop;
+                  return True;
+               end if;
+               Queue (Tail_Q) := Nxt;
+               Tail_Q := Tail_Q + 1;
+            end if;
+         end loop;
+      end loop;
+      return False;
+   end Shortest_In_Gap;
+
+   function Direct_Path_Safe
+     (W : World; First : out Direction; Path_Len : out Integer) return Boolean
+   is
+      Path  : Dir_Path;
+      Steps : Integer;
+      Segs  : Body_Array;
+      Len   : Length_Count;
+      Ate, Legal : Boolean;
+   begin
+      First := W.Dir;
+      Path_Len := 0;
+      if not Shortest_In_Gap (W, Path, Steps) or else Steps < 1 then
+         return False;
+      end if;
+      First := Path (1);
+      Path_Len := Steps;
+      if First = Opposite (W.Dir) then
+         return False;
+      end if;
+      Segs := [others => (1, 1)];
+      for I in 1 .. W.Length loop
+         Segs (I) := W.Segments (I);
+      end loop;
+      Len := W.Length;
+      for S in 1 .. Steps loop
+         Apply_Step (Segs, Len, Path (S), W.Food, Ate, Legal);
+         if not Legal or else not Can_Reach_Tail (Segs, Len) then
+            return False;
+         end if;
+         if Ate then
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Direct_Path_Safe;
+
+   function Direct_Is_Worth
+     (W : World; Path_Len : Integer) return Boolean
+   is
+      Cyc : Integer;
+   begin
+      if W.Length <= Early_Direct_Length then
+         return True;
+      end if;
+      if W.Length > Direct_Blend_Length then
+         return False;
+      end if;
+      if not On_Cycle (W.Segments (1)) or else not On_Cycle (W.Food) then
+         return True;
+      end if;
+      Cyc := Forward_Dist (W.Segments (1), W.Food);
+      return Cyc >= Path_Len * 2;
+   end Direct_Is_Worth;
+
    procedure Choose (W : in out World) is
       Safe       : Dir_Flags := [others => False];
       Safe_Count : Integer := 0;
@@ -290,7 +480,26 @@ package body Snake.Auto is
 
       Head_P := W.Segments (1);
 
-      --  1. One-off onto the omitted cell when the head is adjacent
+      --  1. Early game: a shortest path that stays inside the forward
+      --     gap, if a virtual run stays tail-safe. That keeps the body
+      --     a forward cycle set so mid-game gap play still works. The
+      --     blend shrinks this as the snake grows.
+      if W.Length <= Direct_Blend_Length then
+         declare
+            Food_Dir : Direction;
+            Path_Len : Integer;
+         begin
+            if Direct_Path_Safe (W, Food_Dir, Path_Len)
+              and then Safe (Food_Dir)
+              and then Direct_Is_Worth (W, Path_Len)
+            then
+               W.Pending := Food_Dir;
+               return;
+            end if;
+         end;
+      end if;
+
+      --  2. One-off onto the omitted cell when the head is adjacent
       --     and the step is tail-safe (always, when it is the last
       --     empty cell and the eat fills the board).
       if Is_Omitted (W.Food) then
@@ -311,7 +520,7 @@ package body Snake.Auto is
          end loop;
       end if;
 
-      --  2. Head is off the cycle (just ate the omitted cell mid-game):
+      --  3. Head is off the cycle (just ate the omitted cell mid-game):
       --     step back onto a tail-safe cycle neighbour.
       if not On_Cycle (Head_P) then
          for D in Direction loop
@@ -325,7 +534,7 @@ package body Snake.Auto is
          end loop;
       end if;
 
-      --  3. Forward-gap shortcuts on the 252-cycle. When the pellet is
+      --  4. Forward-gap shortcuts on the 252-cycle. When the pellet is
       --     in the gap, take the longest jump that does not skip it
       --     (fewer turns). When it is behind the tail, or is the
       --     omitted cell, follow the cycle itself until a safe approach
@@ -399,7 +608,7 @@ package body Snake.Auto is
          end if;
       end if;
 
-      --  4. Minimal fallback if no gap move was tail-safe.
+      --  5. Minimal fallback if no gap move was tail-safe.
       if On_Cycle (Head_P) then
          Cycle_D := Cycle_Next (Head_P);
          if Safe (Cycle_D) then
